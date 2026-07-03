@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sistem Kasir Digital UMKM</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<div id="app-container">
+    <header class="top-header">
+        <h2 id="header-title">Kasir Digital</h2>
+    </header>
+
+    <main id="main-content">
+        
+        <div id="page-kasir" class="page active">
+            <div class="marquee-container">
+                <div class="marquee-text">✨ Selamat datang di Kasir Digital! Permudah transaksi toko Anda dengan layanan yang cepat, tepat, dan aman. ✨</div>
+            </div>
+
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="search-kasir" placeholder="Cari produk..." onkeyup="renderKasirProducts()">
+            </div>
+            <div class="product-grid" id="kasir-products"></div>
+            
+            <div class="cart-section">
+                <h3>Keranjang</h3>
+                <div id="cart-items" class="cart-list"></div>
+                
+                <div class="cart-total">
+                    <span>Total:</span>
+                    <span id="cart-total-price">Rp 0</span>
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 5px; font-weight: 600;">Tanggal Transaksi (Kosongkan jika sekarang):</label>
+                    <input type="datetime-local" id="custom-trx-date" style="margin-bottom: 0;">
+                </div>
+
+                <button class="btn-primary" onclick="processCheckout()">
+                    <i class="fa-solid fa-file-invoice-dollar"></i> Bayar & Cetak Nota
+                </button>
+            </div>
+        </div>
+
+        <div id="page-produk" class="page">
+            <div class="card form-card">
+                <h3 id="form-product-title">Tambah Produk Digital</h3>
+                <input type="text" id="prod-name" placeholder="Nama Produk (Mis: Pulsa Indosat 10k)">
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" id="prod-capital" placeholder="Harga Modal (Mis: 12000)">
+                    <input type="number" id="prod-price" placeholder="Harga Jual (Mis: 15000)">
+                </div>
+                <button class="btn-success" id="btn-add-product" onclick="saveProduct()">
+                    <i class="fa-solid fa-plus"></i> Tambah Produk
+                </button>
+                <button class="btn-danger" id="btn-cancel-edit" onclick="cancelEdit()" style="display: none; margin-top: 10px;">
+                    Batal Edit
+                </button>
+            </div>
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="search-produk" placeholder="Cari produk di gudang..." onkeyup="renderProducts()">
+            </div>
+            <div class="list-section" id="product-list"></div>
+        </div>
+
+        <div id="page-laporan" class="page">
+            <div class="sub-nav">
+                <button class="sub-nav-btn active" onclick="switchSubTab('grafik', this)">Grafik Laporan</button>
+                <button class="sub-nav-btn" onclick="switchSubTab('riwayat', this)">Data Riwayat</button>
+            </div>
+            
+            <div class="card form-card" style="margin-bottom: 10px;">
+                <label>Periode Rekap Laporan</label>
+                <select id="filter-laporan" class="custom-select" onchange="renderHistoryAndChart()">
+                    <option value="daily">Harian</option>
+                    <option value="monthly">Bulanan</option>
+                    <option value="yearly">Tahunan</option>
+                </select>
+            </div>
+
+            <div id="sub-grafik" class="sub-page active">
+                <div class="card form-card">
+                    <h3>Grafik Penjualan</h3>
+                    <div class="chart-container">
+                        <canvas id="salesChart"></canvas>
+                    </div>
+                </div>
+                <div class="card form-card" id="rekap-summary"></div>
+            </div>
+
+            <div id="sub-riwayat" class="sub-page">
+                <div class="card form-card">
+                    <h3>Detail Data Penjualan</h3>
+                    <div class="list-section" id="history-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-pengaturan" class="page">
+            <div class="card form-card">
+                <h3>Tampilan</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label style="margin: 0;">Mode Gelap (Dark Mode)</label>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-dark" onchange="toggleDarkMode()">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="card form-card">
+                <h3>Data Toko & Referensi Nota</h3>
+                <label>Logo Toko (Opsional)</label>
+                <p style="font-size: 0.75rem; color: var(--danger); margin-top: -5px; margin-bottom: 5px;">* Ukuran gambar max 1 MB</p>
+                <img id="logo-preview" src="" style="max-height: 80px; display: none; margin-bottom: 10px; border-radius: 8px;">
+                <input type="file" id="set-logo" accept="image/*" onchange="handleLogoUpload(event)">
+                
+                <label>Inisial Nota (4 Huruf)</label>
+                <input type="text" id="set-initials" maxlength="4" placeholder="Misal: AFOR" style="text-transform: uppercase;">
+                
+                <label>Nama Toko</label>
+                <input type="text" id="set-name" placeholder="Misal: ARTA FORTUNA">
+                
+                <label>Kontak & Website</label>
+                <input type="text" id="set-contact" placeholder="Misal: 081299881042 | afortuna.id">
+                
+                <label>Alamat Toko</label>
+                <input type="text" id="set-address" placeholder="Misal: Kediri - Jawa Timur - Indonesia">
+
+                <label>Nama Kasir Default</label>
+                <input type="text" id="set-cashier" placeholder="Misal: Admin / Kasir 1">
+
+                <label>Metode Pembayaran Default</label>
+                <input type="text" id="set-payment" placeholder="Misal: Transfer BCA">
+                
+                <label>Footer Nota (Pesan Bawah)</label>
+                <textarea id="set-footer" rows="4" placeholder="Teks bagian bawah nota"></textarea>
+                
+                <button class="btn-primary" onclick="saveSettings()">
+                    <i class="fa-solid fa-save"></i> Simpan Pengaturan
+                </button>
+            </div>
+            
+            <div class="card form-card" style="margin-top:15px; border-top: 3px solid #10b981;">
+                <h3>Kelola Data</h3>
+                <button class="btn-success" onclick="backupData()" style="margin-bottom:10px;">
+                    <i class="fa-solid fa-download"></i> Cadangkan Data
+                </button>
+                <button class="btn-warning" onclick="document.getElementById('restore-file').click()" style="margin-bottom:10px;">
+                    <i class="fa-solid fa-upload"></i> Pulihkan Data
+                </button>
+                <input type="file" id="restore-file" style="display:none;" accept=".json" onchange="restoreData(event)">
+                <button class="btn-danger" onclick="resetApp()">
+                    <i class="fa-solid fa-trash-can"></i> Reset Data
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <nav id="bottom-nav">
+        <div class="nav-items">
+            <div class="nav-item active" onclick="switchPage('kasir', 'Kasir Digital', this)">
+                <i class="fa-solid fa-cash-register" style="color: #3b82f6;"></i>
+                <span>Kasir</span>
+            </div>
+            <div class="nav-item" onclick="switchPage('produk', 'Kelola Produk', this)">
+                <i class="fa-solid fa-box-open" style="color: #f59e0b;"></i>
+                <span>Produk</span>
+            </div>
+            <div class="nav-item" onclick="switchPage('laporan', 'Laporan Penjualan', this)">
+                <i class="fa-solid fa-chart-column" style="color: #10b981;"></i>
+                <span>Laporan</span>
+            </div>
+            <div class="nav-item" onclick="switchPage('pengaturan', 'Pengaturan Toko', this)">
+                <i class="fa-solid fa-gear" style="color: #6366f1;"></i>
+                <span>Pengaturan</span>
+            </div>
+        </div>
+        <div class="nav-footer">© 2026 Kasir Mobile UMKM by Arta Fortuna. All Rights Reserved.</div>
+    </nav>
+</div>
+
+<div id="receipt-container">
+    <div id="receipt-canvas" style="width: 342px; background-color: #ffffff; padding: 30px; box-sizing: border-box; color: #111111; font-family: Arial, Helvetica, sans-serif !important; line-height: 1.4;">
+        
+        <div style="text-align: center; margin-bottom: 12px;">
+            <img id="r-logo" src="" style="max-width: 80px; max-height: 80px; display: none; margin: 0 auto 8px; border-radius: 8px;">
+            <div id="r-store-name" style="font-size: 16px; font-weight: bold; font-family: Arial, Helvetica, sans-serif !important; color: #111111;">NAMA TOKO</div>
+            <div id="r-contact" style="font-size: 11px; color: #444444; margin-top: 4px; font-family: Arial, Helvetica, sans-serif !important;"></div>
+            <div id="r-address" style="font-size: 11px; color: #444444; margin-top: 2px; font-family: Arial, Helvetica, sans-serif !important;"></div>
+        </div>
+        
+        <div style="border-bottom: 1px dashed #aaaaaa; margin: 12px 0;"></div>
+        
+        <table width="100%" cellpadding="0" cellspacing="0" style="font-size: 11px; color: #111111; font-family: Arial, Helvetica, sans-serif !important;">
+            <tr><td style="padding-bottom:4px; font-family: Arial, Helvetica, sans-serif !important;">No. Transaksi</td><td align="right" id="r-trx-id" style="padding-bottom:4px; font-family: Arial, Helvetica, sans-serif !important;"></td></tr>
+            <tr><td style="padding-bottom:4px; font-family: Arial, Helvetica, sans-serif !important;">Tanggal</td><td align="right" id="r-date" style="padding-bottom:4px; font-family: Arial, Helvetica, sans-serif !important;"></td></tr>
+            <tr><td style="padding-bottom:4px; font-family: Arial, Helvetica, sans-serif !important;">Kasir</td><td align="right" id="r-cashier" style="padding-bottom:4px; font-family: Arial, Helvetica, sans-serif !important;"></td></tr>
+            <tr><td style="padding-bottom:4px; font-family: Arial, Helvetica, sans-serif !important;">Pembayaran</td><td align="right" id="r-payment" style="padding-bottom:4px; font-family: Arial, Helvetica, sans-serif !important;"></td></tr>
+        </table>
+        
+        <div style="border-bottom: 1px dashed #aaaaaa; margin: 12px 0;"></div>
+        
+        <table width="100%" cellpadding="0" cellspacing="0" style="font-size: 12px; color: #111111; font-family: Arial, Helvetica, sans-serif !important;" id="r-items-table">
+            </table>
+        
+        <div style="border-bottom: 1px dashed #aaaaaa; margin: 12px 0;"></div>
+        
+        <table width="100%" cellpadding="0" cellspacing="0" style="font-size: 12px; color: #111111; font-family: Arial, Helvetica, sans-serif !important;">
+            <tr><td style="padding-bottom:5px; font-family: Arial, Helvetica, sans-serif !important;">Total</td><td align="right" id="r-total" style="padding-bottom:5px; font-family: Arial, Helvetica, sans-serif !important;"></td></tr>
+            <tr><td style="padding-bottom:5px; font-family: Arial, Helvetica, sans-serif !important;">Bayar</td><td align="right" id="r-bayar" style="padding-bottom:5px; font-family: Arial, Helvetica, sans-serif !important;"></td></tr>
+            <tr><td style="padding-top:5px; font-size: 14px; font-family: Arial, Helvetica, sans-serif !important;"><b>Kembali</b></td><td align="right" style="padding-top:5px; font-size: 14px; font-family: Arial, Helvetica, sans-serif !important;"><b>Rp 0</b></td></tr>
+        </table>
+        
+        <div id="r-footer" style="text-align: center; font-size: 10px; color: #666666; margin-top: 20px; line-height: 1.4; white-space: pre-wrap; font-family: Arial, Helvetica, sans-serif !important;"></div>
+        
+    </div>
+</div>
+
+<div id="modal-nota" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModal('modal-nota')">&times;</span>
+        <h3>Nota Berhasil Dicetak!</h3>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Klik gambar untuk perbesar</p>
+        <img id="img-nota-result" src="" alt="Nota" onclick="zoomImage(this.src)">
+        <div class="modal-actions">
+            <button class="btn-success" id="btn-share-wa"><i class="fa-brands fa-whatsapp"></i> Bagikan ke WA</button>
+            <button class="btn-primary" onclick="closeModal('modal-nota')">Tutup</button>
+        </div>
+    </div>
+</div>
+
+<div id="modal-zoom" class="modal" style="background: rgba(0,0,0,0.9);" onclick="closeModal('modal-zoom')">
+    <span class="close-btn" style="color: white; top: 20px; right: 20px; font-size: 2rem;">&times;</span>
+    <img id="img-zoom-result" src="" style="max-width: 95%; max-height: 90vh; border-radius: 8px;">
+</div>
+
+<div id="custom-alert" class="modal popup-ui">
+    <div class="modal-content">
+        <i class="fa-solid fa-circle-info" style="font-size: 3rem; color: var(--primary); margin-bottom: 10px;"></i>
+        <h3 id="alert-msg" style="margin-bottom: 15px; font-size: 1rem;">Pesan</h3>
+        <button class="btn-primary" onclick="closeModal('custom-alert')">Mengerti</button>
+    </div>
+</div>
+
+<div id="custom-confirm" class="modal popup-ui">
+    <div class="modal-content">
+        <i class="fa-solid fa-circle-question" style="font-size: 3rem; color: var(--warning); margin-bottom: 10px;"></i>
+        <h3 id="confirm-msg" style="margin-bottom: 15px; font-size: 1rem;">Konfirmasi</h3>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn-danger" id="btn-confirm-no">Tidak</button>
+            <button class="btn-success" id="btn-confirm-yes">Ya, Lanjutkan</button>
+        </div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
