@@ -63,6 +63,10 @@ function uiConfirm(message) {
 }
 
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+function openAboutModal(event) { 
+    if(event) event.preventDefault(); 
+    document.getElementById('modal-about').style.display = 'flex'; 
+}
 function zoomImage(src) {
     document.getElementById('img-zoom-result').src = src;
     document.getElementById('modal-zoom').style.display = 'flex';
@@ -70,21 +74,18 @@ function zoomImage(src) {
 
 // ================= STATE APLIKASI =================
 let storeData = { 
-    initials: 'AFOR', 
-    name: 'ARTA FORTUNA', 
-    contact: '081299881042 | afortuna.id',
-    address: 'Kediri - Jawa Timur - Indonesia',
-    cashier: 'Admin',
-    payment: 'QRIS',
-    logo: null, 
-    footer: 'Terima kasih telah berbelanja.\nSimpan nota ini sebagai bukti.' 
+    initials: '', name: '', contact: '', address: '', cashier: '', payment: '', logo: null, footer: '' 
 };
 let products = [];
 let historyTrx = [];
+let bonData = [];
 let cart = [];
-let sequenceTrx = 1;
 let salesChartInst = null;
+
 let editProductId = null;
+let editRiwayatId = null;
+let editBonId = null;
+let payBonId = null;
 let tempLogoBase64 = null; 
 
 const formatRp = (angka) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
@@ -94,7 +95,7 @@ window.onload = async () => {
     storeData = (await idbGet('pos_store')) || storeData;
     products = (await idbGet('pos_products')) || [];
     historyTrx = (await idbGet('pos_history')) || [];
-    sequenceTrx = parseInt(await idbGet('pos_seq')) || 1;
+    bonData = (await idbGet('pos_bon')) || [];
     
     const isDark = await idbGet('pos_darkmode');
     if(isDark) {
@@ -106,6 +107,7 @@ window.onload = async () => {
     renderProducts();
     renderKasirProducts();
     renderHistoryAndChart();
+    renderBon();
 };
 
 // ================= NAVIGASI =================
@@ -189,7 +191,7 @@ async function saveSettings() {
 }
 
 function backupData() {
-    const dataToExport = { storeData, products, historyTrx, sequenceTrx };
+    const dataToExport = { storeData, products, historyTrx, bonData };
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataToExport));
     const dlAnchorElem = document.createElement('a');
     dlAnchorElem.setAttribute("href", dataStr);
@@ -205,9 +207,9 @@ function restoreData(event) {
         try {
             const data = JSON.parse(e.target.result);
             if(data.storeData && data.products && data.historyTrx) {
-                storeData = data.storeData; products = data.products; historyTrx = data.historyTrx; sequenceTrx = data.sequenceTrx || 1;
-                await idbSet('pos_store', storeData); await idbSet('pos_products', products); await idbSet('pos_history', historyTrx); await idbSet('pos_seq', sequenceTrx);
-                loadSettingsForm(); renderProducts(); renderKasirProducts(); renderHistoryAndChart();
+                storeData = data.storeData; products = data.products; historyTrx = data.historyTrx; bonData = data.bonData || [];
+                await idbSet('pos_store', storeData); await idbSet('pos_products', products); await idbSet('pos_history', historyTrx); await idbSet('pos_bon', bonData);
+                loadSettingsForm(); renderProducts(); renderKasirProducts(); renderHistoryAndChart(); renderBon();
                 uiAlert('Data Berhasil Dipulihkan!');
             } else uiAlert('Format file cadangan tidak sesuai!');
         } catch (err) { uiAlert('Gagal membaca file cadangan!'); }
@@ -217,7 +219,7 @@ function restoreData(event) {
 }
 
 async function resetApp() {
-    if(await uiConfirm('YAKIN RESET SEMUA DATA?\nData Laporan & Produk akan hilang permanen.')){
+    if(await uiConfirm('YAKIN RESET SEMUA DATA?\nData Laporan, Bon, & Produk akan hilang permanen.')){
         await idbClear();
         location.reload();
     }
@@ -308,6 +310,125 @@ function renderProducts() {
     });
 }
 
+// ================= MANAJEMEN BON / HUTANG =================
+async function saveBon() {
+    const tglRaw = document.getElementById('bon-tgl').value;
+    const nama = document.getElementById('bon-nama').value;
+    const produk = document.getElementById('bon-produk').value;
+    const harga = parseInt(document.getElementById('bon-harga').value);
+
+    if(!tglRaw || !nama || !produk || !harga || isNaN(harga)) return uiAlert('Semua isian bon wajib diisi!');
+
+    const [y, m, d] = tglRaw.split('-');
+    const tgl = `${d}/${m}/${y}`;
+
+    if(editBonId) {
+        const idx = bonData.findIndex(b => b.id === editBonId);
+        if(idx !== -1) {
+            bonData[idx] = { ...bonData[idx], tglRaw, tgl, nama, produk, harga, sisa: harga - bonData[idx].dibayar };
+            uiAlert('Data bon berhasil diperbarui!');
+        }
+        cancelEditBon();
+    } else {
+        bonData.push({ id: Date.now(), tglRaw, tgl, nama, produk, harga, dibayar: 0, sisa: harga });
+        uiAlert('Bon berhasil ditambahkan!');
+        document.getElementById('bon-tgl').value = '';
+        document.getElementById('bon-nama').value = '';
+        document.getElementById('bon-produk').value = '';
+        document.getElementById('bon-harga').value = '';
+    }
+    await idbSet('pos_bon', bonData);
+    renderBon();
+}
+
+function triggerEditBon(id) {
+    const b = bonData.find(x => x.id === id);
+    if(!b) return;
+    editBonId = id;
+    document.getElementById('bon-tgl').value = b.tglRaw || '';
+    document.getElementById('bon-nama').value = b.nama;
+    document.getElementById('bon-produk').value = b.produk;
+    document.getElementById('bon-harga').value = b.harga;
+
+    document.getElementById('form-bon-title').innerText = "Edit Data Bon";
+    document.getElementById('btn-add-bon').innerHTML = '<i class="fa-solid fa-save"></i> Simpan Perubahan';
+    document.getElementById('btn-cancel-edit-bon').style.display = 'block';
+}
+
+function cancelEditBon() {
+    editBonId = null;
+    document.getElementById('bon-tgl').value = '';
+    document.getElementById('bon-nama').value = '';
+    document.getElementById('bon-produk').value = '';
+    document.getElementById('bon-harga').value = '';
+    document.getElementById('form-bon-title').innerText = "Catat Bon Baru";
+    document.getElementById('btn-add-bon').innerHTML = '<i class="fa-solid fa-plus"></i> Tambah Bon';
+    document.getElementById('btn-cancel-edit-bon').style.display = 'none';
+}
+
+async function deleteBon(id) {
+    if(await uiConfirm('Yakin hapus data bon pelanggan ini?')){
+        bonData = bonData.filter(b => b.id !== id);
+        await idbSet('pos_bon', bonData);
+        renderBon();
+    }
+}
+
+function renderBon() {
+    const kw = document.getElementById('search-bon').value.toLowerCase();
+    const tbody = document.getElementById('bon-list');
+    const filtered = bonData.filter(b => b.nama.toLowerCase().includes(kw) || b.produk.toLowerCase().includes(kw));
+
+    tbody.innerHTML = filtered.length === 0 ? '<tr><td colspan="9" style="text-align:center; color:gray;">Tidak ada data bon ditemukan</td></tr>' : '';
+
+    filtered.forEach((b, i) => {
+        const statusHTML = b.sisa <= 0 ? '<span class="bon-status lunas">Lunas</span>' : '<span class="bon-status belum">Belum</span>';
+        tbody.innerHTML += `
+            <tr>
+                <td>${i + 1}</td>
+                <td>${b.tgl}</td>
+                <td>${b.nama}</td>
+                <td>${b.produk}</td>
+                <td>${formatRp(b.harga)}</td>
+                <td>${formatRp(b.dibayar)}</td>
+                <td>${formatRp(b.sisa)}</td>
+                <td>${statusHTML}</td>
+                <td>
+                    <div style="display:flex; gap:5px; justify-content:center;">
+                        <button class="btn-success btn-small" onclick="openPayBon(${b.id})"><i class="fa-solid fa-money-bill"></i> Bayar/Cicil</button>
+                        <button class="btn-warning btn-small" style="color:white;" onclick="triggerEditBon(${b.id})"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn-danger btn-small" onclick="deleteBon(${b.id})"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+function openPayBon(id) {
+    payBonId = id;
+    const b = bonData.find(x => x.id === id);
+    if(!b) return;
+    document.getElementById('bayar-bon-name').innerText = `Tagihan: ${b.nama} | Sisa: ${formatRp(b.sisa)}`;
+    document.getElementById('input-bayar-bon').value = '';
+    document.getElementById('modal-bayar-bon').style.display = 'flex';
+}
+
+async function processPayBon() {
+    const amt = parseInt(document.getElementById('input-bayar-bon').value);
+    if(!amt || isNaN(amt) || amt <= 0) return uiAlert('Jumlah pembayaran tidak valid!');
+    const idx = bonData.findIndex(x => x.id === payBonId);
+    if(idx !== -1) {
+        bonData[idx].dibayar += amt;
+        bonData[idx].sisa = bonData[idx].harga - bonData[idx].dibayar;
+        if(bonData[idx].sisa < 0) bonData[idx].sisa = 0; 
+        await idbSet('pos_bon', bonData);
+        uiAlert('Pembayaran bon berhasil dicatat!');
+        renderBon();
+    }
+    closeModal('modal-bayar-bon');
+}
+
 // ================= KASIR & KERANJANG =================
 function renderKasirProducts() {
     const keyword = document.getElementById('search-kasir').value.toLowerCase();
@@ -374,7 +495,8 @@ function renderCart() {
 // ================= TRANSAKSI & NOTA =================
 function generateTrxId(dateObj) {
     const pad = (n) => String(n).padStart(2, '0');
-    return `${storeData.initials}${pad(dateObj.getDate())}${pad(dateObj.getMonth()+1)}${dateObj.getFullYear()}${pad(dateObj.getHours())}${pad(dateObj.getMinutes())}${pad(dateObj.getSeconds())}${String(sequenceTrx).padStart(4, '0')}`;
+    const random4 = Math.floor(1000 + Math.random() * 9000);
+    return `${storeData.initials}${pad(dateObj.getDate())}${pad(dateObj.getMonth()+1)}${dateObj.getFullYear()}${pad(dateObj.getHours())}${pad(dateObj.getMinutes())}${pad(dateObj.getSeconds())}${random4}`;
 }
 
 async function processCheckout() {
@@ -408,7 +530,6 @@ async function processCheckout() {
     });
 
     await idbSet('pos_history', historyTrx);
-    sequenceTrx++; await idbSet('pos_seq', sequenceTrx);
     
     buildReceiptDOM(trxData);
     
@@ -473,24 +594,71 @@ function rePrint(trxId) {
     if(trxData) buildReceiptDOM(trxData);
 }
 
-async function shareToWhatsApp(dataUrl, trxData) {
-    const contact = storeData.contact || '';
-    let msgText = `*${storeData.name || 'Toko Digital'}*\n${contact}\n\nTRX: ${trxData.id}\nTanggal: ${trxData.date}\n\n*Rincian:*\n`;
-    trxData.items.forEach(i => { 
-        // HAPUS TEKS QTY 'x 1' PADA TEKS WA
-        msgText += `- ${i.name} = ${formatRp(i.subtotal)}\n`; 
-        if(i.note) msgText += `  _Catatan: ${i.note}_\n`; 
-    });
-    msgText += `\n*TOTAL: ${formatRp(trxData.total)}*\n\n${storeData.footer || ''}`;
+// ================= EDIT & HAPUS RIWAYAT =================
+function openEditRiwayat(id) {
+    const t = historyTrx.find(x => x.id === id);
+    if(!t) return;
+    editRiwayatId = id;
+    document.getElementById('edit-riwayat-tgl').value = t.date;
+    document.getElementById('edit-riwayat-total').value = t.total;
+    document.getElementById('edit-riwayat-profit').value = t.profit || 0;
+    document.getElementById('modal-edit-riwayat').style.display = 'flex';
+}
 
+async function saveEditRiwayat() {
+    const tgl = document.getElementById('edit-riwayat-tgl').value;
+    const total = parseInt(document.getElementById('edit-riwayat-total').value);
+    const profit = parseInt(document.getElementById('edit-riwayat-profit').value);
+
+    if(!tgl || isNaN(total) || isNaN(profit)) return uiAlert('Data isian tidak valid!');
+
+    const idx = historyTrx.findIndex(x => x.id === editRiwayatId);
+    if(idx !== -1) {
+        historyTrx[idx].date = tgl;
+        historyTrx[idx].total = total;
+        historyTrx[idx].profit = profit;
+
+        historyTrx.sort((a, b) => {
+            const parseIndoDate = (dStr) => {
+                const parts = dStr.replace(' WIB', '').split(' ');
+                if (parts.length < 2) return new Date().getTime(); 
+                const [d, m, y] = parts[0].split('/');
+                const hm = parts[1].split('.');
+                return new Date(y, m-1, d, hm[0] || '0', hm[1] || '0', 0).getTime();
+            };
+            return parseIndoDate(b.date) - parseIndoDate(a.date);
+        });
+
+        await idbSet('pos_history', historyTrx);
+        uiAlert('Data riwayat berhasil diperbarui!');
+        renderHistoryAndChart();
+    }
+    closeModal('modal-edit-riwayat');
+}
+
+async function deleteRiwayat(id) {
+    if(await uiConfirm('Yakin hapus data riwayat transaksi ini?')){
+        historyTrx = historyTrx.filter(t => t.id !== id);
+        await idbSet('pos_history', historyTrx);
+        uiAlert('Data riwayat berhasil dihapus!');
+        renderHistoryAndChart();
+    }
+}
+
+// ================= SHARE WHATSAPP PURE IMAGE =================
+async function shareToWhatsApp(dataUrl, trxData) {
     try {
         const blob = await (await fetch(dataUrl)).blob();
-        const file = new File([blob], `${trxData.id}.png`, { type: blob.type });
+        const file = new File([blob], `Nota_${trxData.id}.png`, { type: blob.type });
+        
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({ title: 'Nota Transaksi', text: msgText, files: [file] });
+            await navigator.share({ files: [file] }); 
         } else {
-            const link = document.createElement('a'); link.href = dataUrl; link.download = `Nota_${trxData.id}.png`; link.click();
-            window.open(`https://wa.me/?text=${encodeURIComponent(msgText)}`, '_blank');
+            const link = document.createElement('a'); 
+            link.href = dataUrl; 
+            link.download = `Nota_${trxData.id}.png`; 
+            link.click();
+            uiAlert("Gambar nota berhasil diunduh. Silakan lampirkan gambar secara manual di obrolan WhatsApp.");
         }
     } catch (err) { uiAlert("Gagal membagikan otomatis. Gambar nota telah diunduh."); }
 }
@@ -530,9 +698,18 @@ function renderHistoryAndChart() {
                         <h4 style="color:var(--text-main); margin:0;">${formatRp(t.total)}</h4>
                         <span style="font-size:0.75rem; color:var(--success);">Laba: ${formatRp(profit)}</span>
                     </div>
-                    <button class="btn-primary btn-small" onclick="rePrint('${t.id}')">
-                        <i class="fa-solid fa-receipt"></i> Nota
-                    </button>
+                    
+                    <div style="display:flex; gap: 5px;">
+                        <button class="btn-warning btn-small" style="color: white;" onclick="openEditRiwayat('${t.id}')">
+                            <i class="fa-solid fa-pen"></i> Edit
+                        </button>
+                        <button class="btn-danger btn-small" onclick="deleteRiwayat('${t.id}')">
+                            <i class="fa-solid fa-trash"></i> Hapus
+                        </button>
+                        <button class="btn-primary btn-small" onclick="rePrint('${t.id}')">
+                            <i class="fa-solid fa-receipt"></i> Nota
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
@@ -541,23 +718,23 @@ function renderHistoryAndChart() {
     const groupedData = {};
     const chartData = [...historyTrx].reverse(); 
     
-    let totalOmzetFiltered = 0;
+    let totalOmsetFiltered = 0;
     let totalProfitFiltered = 0;
 
     chartData.forEach(t => {
         const key = getGroupedDateKey(t.date, filter);
-        if(!groupedData[key]) groupedData[key] = { omzet: 0, profit: 0 };
-        groupedData[key].omzet += t.total;
+        if(!groupedData[key]) groupedData[key] = { omset: 0, profit: 0 };
+        groupedData[key].omset += t.total;
         groupedData[key].profit += (t.profit || 0);
         
-        totalOmzetFiltered += t.total;
+        totalOmsetFiltered += t.total;
         totalProfitFiltered += (t.profit || 0);
     });
 
     document.getElementById('rekap-summary').innerHTML = `
         <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
             <span style="color:var(--text-muted); font-size:0.9rem;">Total Omzet:</span>
-            <span style="font-weight:bold; color:var(--text-main);">${formatRp(totalOmzetFiltered)}</span>
+            <span style="font-weight:bold; color:var(--text-main);">${formatRp(totalOmsetFiltered)}</span>
         </div>
         <div style="display:flex; justify-content:space-between;">
             <span style="color:var(--text-muted); font-size:0.9rem;">Total Laba:</span>
@@ -566,7 +743,7 @@ function renderHistoryAndChart() {
     `;
 
     const labels = Object.keys(groupedData);
-    const dataOmzet = labels.map(k => groupedData[k].omzet);
+    const dataOmset = labels.map(k => groupedData[k].omset);
 
     const ctx = document.getElementById('salesChart').getContext('2d');
     if (salesChartInst) salesChartInst.destroy();
@@ -577,7 +754,7 @@ function renderHistoryAndChart() {
             labels: labels,
             datasets: [{
                 label: 'Omzet Penjualan (Rp)',
-                data: dataOmzet,
+                data: dataOmset,
                 backgroundColor: 'rgba(59, 130, 246, 0.8)',
                 borderColor: '#3b82f6',
                 borderWidth: 1,
