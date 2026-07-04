@@ -55,8 +55,8 @@
                 <h3 id="form-product-title">Tambah Produk Digital</h3>
                 <input type="text" id="prod-name" placeholder="Nama Produk (Mis: Pulsa Indosat 10k)">
                 <div style="display: flex; gap: 10px;">
-                    <input type="number" id="prod-capital" placeholder="Harga Modal (Mis: 12000)">
-                    <input type="number" id="prod-price" placeholder="Harga Jual (Mis: 15000)">
+                    <input type="number" id="prod-capital" placeholder="Harga Modal (Mis: 11000)">
+                    <input type="number" id="prod-price" placeholder="Harga Jual (Mis: 13000)">
                 </div>
                 <button class="btn-success" id="btn-add-product" onclick="saveProduct()">
                     <i class="fa-solid fa-plus"></i> Tambah Produk
@@ -105,6 +105,49 @@
             </div>
         </div>
 
+        <div id="page-bon" class="page">
+            <div class="card form-card">
+                <h3 id="form-bon-title">Catat Bon Baru</h3>
+                <label>Tanggal Bon</label>
+                <input type="date" id="bon-tgl">
+                <label>Data Pelanggan & Produk</label>
+                <input type="text" id="bon-nama" placeholder="Nama Pelanggan">
+                <input type="text" id="bon-produk" placeholder="Nama Produk">
+                <input type="number" id="bon-harga" placeholder="Harga Total (Rp)">
+                <button class="btn-success" id="btn-add-bon" onclick="saveBon()">
+                    <i class="fa-solid fa-plus"></i> Tambah Bon
+                </button>
+                <button class="btn-danger" id="btn-cancel-edit-bon" onclick="cancelEditBon()" style="display: none; margin-top: 10px;">
+                    Batal Edit
+                </button>
+            </div>
+            
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="search-bon" placeholder="Cari nama pelanggan / produk..." onkeyup="renderBon()">
+            </div>
+            
+            <div class="card form-card" style="padding: 0; overflow-x: auto; border-radius: 8px;">
+                <table class="bon-table">
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Tanggal</th>
+                            <th>Nama</th>
+                            <th>Produk</th>
+                            <th>Harga</th>
+                            <th>Dibayar</th>
+                            <th>Sisa</th>
+                            <th>Status</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bon-list">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
         <div id="page-pengaturan" class="page">
             <div class="card form-card">
                 <h3>Tampilan</h3>
@@ -148,6 +191,10 @@
                 <button class="btn-primary" onclick="saveSettings()">
                     <i class="fa-solid fa-save"></i> Simpan Pengaturan
                 </button>
+                
+                <div style="text-align: center; margin-top: 15px;">
+                    <a href="#" onclick="openAboutModal(event)" style="color: var(--primary); font-size: 0.85rem; text-decoration: underline; font-weight: 600;">Syarat & Ketentuan</a>
+                </div>
             </div>
             
             <div class="card form-card" style="margin-top:15px; border-top: 3px solid #10b981;">
@@ -181,12 +228,19 @@
                 <i class="fa-solid fa-chart-column" style="color: #10b981;"></i>
                 <span>Laporan</span>
             </div>
+            <div class="nav-item" onclick="switchPage('bon', 'Buku Bon', this)">
+                <i class="fa-solid fa-book-open" style="color: #ef4444;"></i>
+                <span>Bon</span>
+            </div>
             <div class="nav-item" onclick="switchPage('pengaturan', 'Pengaturan Toko', this)">
                 <i class="fa-solid fa-gear" style="color: #6366f1;"></i>
-                <span>Pengaturan</span>
+                <span>Setelan</span>
             </div>
         </div>
-        <div class="nav-footer">© 2026 Kasir Mobile UMKM by Arta Fortuna. All Rights Reserved.</div>
+        <div class="nav-footer">
+            Aplikasi Kasir Mobile Versi 3.0.0 | Licensed to Arta Fortuna.<br>
+            &copy; 2026 Arta Fortuna. All Rights Reserved.
+        </div>
     </nav>
 </div>
 
@@ -195,7 +249,7 @@
         
         <div style="text-align: center; margin-bottom: 12px;">
             <img id="r-logo" src="" style="max-width: 80px; max-height: 80px; display: none; margin: 0 auto 8px; border-radius: 8px;">
-            <div id="r-store-name" style="font-size: 16px; font-weight: bold; font-family: Arial, Helvetica, sans-serif !important; color: #111111;">NAMA TOKO</div>
+            <div id="r-store-name" style="font-size: 18px !important; font-weight: 900 !important; font-family: Arial, Helvetica, sans-serif !important; color: #111111;">NAMA TOKO</div>
             <div id="r-contact" style="font-size: 11px; color: #444444; margin-top: 4px; font-family: Arial, Helvetica, sans-serif !important;"></div>
             <div id="r-address" style="font-size: 11px; color: #444444; margin-top: 2px; font-family: Arial, Helvetica, sans-serif !important;"></div>
         </div>
@@ -224,6 +278,63 @@
         
         <div id="r-footer" style="text-align: center; font-size: 10px; color: #666666; margin-top: 20px; line-height: 1.4; white-space: pre-wrap; font-family: Arial, Helvetica, sans-serif !important;"></div>
         
+    </div>
+</div>
+
+<div id="modal-edit-riwayat" class="modal popup-ui">
+    <div class="modal-content">
+        <h3 style="margin-bottom: 10px;">Edit Data Riwayat</h3>
+        <input type="text" id="edit-riwayat-tgl" placeholder="Tgl (Misal: 04/07/2026 10.30 WIB)">
+        <input type="number" id="edit-riwayat-total" placeholder="Total (Rp)">
+        <input type="number" id="edit-riwayat-profit" placeholder="Laba (Rp)">
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button class="btn-danger" onclick="closeModal('modal-edit-riwayat')">Batal</button>
+            <button class="btn-success" onclick="saveEditRiwayat()">Simpan</button>
+        </div>
+    </div>
+</div>
+
+<div id="modal-bayar-bon" class="modal popup-ui">
+    <div class="modal-content">
+        <h3>Bayar / Cicil Bon</h3>
+        <p id="bayar-bon-name" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;"></p>
+        <input type="number" id="input-bayar-bon" placeholder="Jumlah Pembayaran (Rp)">
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button class="btn-danger" onclick="closeModal('modal-bayar-bon')">Batal</button>
+            <button class="btn-success" onclick="processPayBon()">Simpan</button>
+        </div>
+    </div>
+</div>
+
+<div id="modal-about" class="modal popup-ui">
+    <div class="modal-content" style="text-align: left; max-height: 80vh; overflow-y: auto;">
+        <span class="close-btn" onclick="closeModal('modal-about')">&times;</span>
+        <h3 style="text-align: center; margin-bottom: 15px;">Tentang Aplikasi Kasir Arta Fortuna</h3>
+        <p style="font-size: 0.85rem; margin-bottom: 10px; color: var(--text-main);">Aplikasi Kasir Mobile Arta Fortuna dirancang khusus untuk mempermudah operasional UMKM secara mandiri dan offline. Dengan menggunakan layanan kami, pihak Penyewa menyetujui ketentuan berikut:</p>
+        
+        <h3 style="text-align: center; margin-bottom: 15px;">Syarat dan Ketentuan</h3>
+        <p style="font-size: 0.85rem; margin-bottom: 5px; color: var(--text-main);"><strong>Penyimpanan & Keamanan Data (Offline)</strong></p>
+        <p style="font-size: 0.8rem; margin-bottom: 10px; color: var(--text-muted);">Aplikasi ini beroperasi penuh secara offline dan menyimpan data secara lokal pada perangkat Anda (menggunakan IndexedDB). Oleh karena itu, <strong>keamanan dan keutuhan data sepenuhnya menjadi tanggung jawab Penyewa</strong>. Arta Fortuna <strong>tidak bertanggung jawab</strong> atas hilangnya data yang disebabkan oleh penghapusan data/cache aplikasi, atau uninstall aplikasi (baik sengaja maupun tidak sengaja).</p>
+        
+        <p style="font-size: 0.85rem; margin-bottom: 5px; color: var(--text-main);"><strong>Pencadangan (Backup) Data Mandiri</strong></p>
+        <p style="font-size: 0.8rem; margin-bottom: 10px; color: var(--text-muted);">Untuk mencegah kehilangan data akibat perangkat rusak, hilang, atau error sistem, aplikasi ini menyediakan fitur ekspor database. Penyewa <strong>sangat diwajibkan untuk melakukan ekspor database secara rutin</strong> dan menyimpan file tersebut di media yang aman (seperti Google Drive, komputer, atau flashdisk). Arta Fortuna terlepas dari segala tanggung jawab atas hilangnya data apabila Penyewa lalai melakukan pencadangan.</p>
+        
+        <p style="font-size: 0.85rem; margin-bottom: 5px; color: var(--text-main);"><strong>Kinerja & Kondisi Perangkat</strong></p>
+        <p style="font-size: 0.8rem; margin-bottom: 10px; color: var(--text-muted);">Kelancaran aplikasi bergantung pada spesifikasi dan kondisi smartphone/tablet Penyewa. Arta Fortuna tidak bertanggung jawab atas lambatnya aplikasi atau crash yang murni disebabkan oleh memori perangkat (RAM/Storage) yang penuh, virus, atau kerusakan fisik perangkat.</p>
+        
+        <p style="font-size: 0.85rem; margin-bottom: 5px; color: var(--text-main);"><strong>Hak Guna & Masa Sewa</strong></p>
+        <p style="font-size: 0.8rem; margin-bottom: 10px; color: var(--text-muted);">Aplikasi ini didistribusikan dengan sistem sewa (berlangganan bulanan atau tahunan). Arta Fortuna hanya memberikan hak guna eksklusif kepada Penyewa selama masa sewa aktif.</p>
+        
+        <p style="font-size: 0.85rem; margin-bottom: 5px; color: var(--text-main);"><strong>Dukungan Teknis & Pembaruan</strong></p>
+        <p style="font-size: 0.8rem; margin-bottom: 10px; color: var(--text-muted);">Selama masa sewa masih aktif, Penyewa berhak mendapatkan pembaruan (update) aplikasi serta dukungan teknis apabila ditemukan error dari sisi sistem Arta Fortuna.</p>
+        
+        <p style="font-size: 0.85rem; margin-bottom: 5px; color: var(--text-main);"><strong>Penghentian Layanan</strong></p>
+        <p style="font-size: 0.8rem; margin-bottom: 10px; color: var(--text-muted);">Arta Fortuna berhak penuh untuk menghentikan layanan dan/atau mencabut akses aplikasi apabila masa sewa telah berakhir dan tidak dilakukan perpanjangan oleh Penyewa.</p>
+        
+        <p style="font-size: 0.85rem; margin-bottom: 5px; color: var(--text-main);"><strong>Larangan & Hak Cipta</strong></p>
+        <p style="font-size: 0.8rem; margin-bottom: 20px; color: var(--text-muted);">Demi menjaga integritas sistem, <strong>Penyewa dilarang keras menjual, menyewakan kembali, atau memindahtangankan aplikasi ini</strong> kepada pihak ketiga. Penyewa juga <strong>tidak diperkenankan membongkar (reverse-engineering) atau memodifikasi aplikasi</strong> dalam bentuk apa pun tanpa persetujuan tertulis dari Arta Fortuna.</p>
+        
+        <button class="btn-primary" onclick="closeModal('modal-about')">Saya Mengerti & Setuju</button>
     </div>
 </div>
 
